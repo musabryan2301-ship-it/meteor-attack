@@ -1,0 +1,141 @@
+
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Meteor Attack</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#050817;color:#eaf6ff;font-family:monospace;text-align:center}
+h1{color:#59e8ff;font-size:25px}
+.stats{display:flex;justify-content:space-around;flex-wrap:wrap;gap:5px;padding:8px}
+.stat{background:#101b38;border:1px solid #365a91;padding:8px}
+canvas{width:100%;max-width:500px;height:auto;display:block;margin:auto;border:2px solid #27466d;touch-action:none}
+button{padding:12px;margin:5px;background:#16274c;color:white;border:2px solid #54dfff;border-radius:6px;font-family:monospace;font-weight:bold}
+.slot{margin:12px auto;padding:12px;max-width:500px;background:#11182e;border:2px solid #a65aff}
+.reels{font-size:28px;padding:12px}
+</style>
+</head>
+<body>
+<h1>☄ METEOR ATTACK ☄</h1>
+<div class="stats">
+<div class="stat">SCORE <b id="score">0</b></div>
+<div class="stat">VIES <b id="lives">3</b></div>
+<div class="stat">VAGUE <b id="wave">1</b></div>
+<div class="stat">CRÉDITS <b id="credits">1000</b></div>
+</div>
+<canvas id="game" width="360" height="440"></canvas>
+<div>
+<button id="left">◀ GAUCHE</button>
+<button id="fire">🔥 TIR</button>
+<button id="right">DROITE ▶</button>
+</div>
+<div class="slot">
+<b>🌌 COSMIC SLOT 🌌</b>
+<div class="reels" id="reels">🌍 ⭐ ☄️</div>
+<button id="spin">SPIN — 100 CRÉDITS</button>
+<p>3 identiques : 500 crédits · 2 identiques : 150 crédits</p>
+<p id="msg">Défends la Terre !</p>
+</div>
+<script>
+const c=document.getElementById('game'),x=c.getContext('2d');
+const $=id=>document.getElementById(id);
+let score=0,lives=3,wave=1,credits=1000,frame=0,spawn=0,alive=true;
+let ship=180,bullets=[],rocks=[],keys={left:false,right:false,fire:false};
+const symbols=['🌍','⭐','☄️','🚀','💎'];
+function hud(){
+ $('score').textContent=score;$('lives').textContent=lives;
+ $('wave').textContent=wave;$('credits').textContent=credits;
+}
+function hold(id,key){
+ const b=$(id);
+ b.onpointerdown=e=>{e.preventDefault();keys[key]=true;b.setPointerCapture(e.pointerId)};
+ ['pointerup','pointercancel','lostpointercapture'].forEach(ev=>b.addEventListener(ev,()=>keys[key]=false));
+}
+hold('left','left');hold('right','right');hold('fire','fire');
+document.onkeydown=e=>{
+ if(e.key==='ArrowLeft')keys.left=true;
+ if(e.key==='ArrowRight')keys.right=true;
+ if(e.key===' ')keys.fire=true;
+};
+document.onkeyup=e=>{
+ if(e.key==='ArrowLeft')keys.left=false;
+ if(e.key==='ArrowRight')keys.right=false;
+ if(e.key===' ')keys.fire=false;
+};
+function meteor(){
+ let r=10+Math.random()*10;
+ rocks.push({x:15+Math.random()*330,y:-20,r,s:1+Math.random()*1.5+wave*.15});
+}
+function draw(){
+ x.fillStyle='#050817';x.fillRect(0,0,360,440);
+ for(let i=0;i<40;i++){
+  x.fillStyle='#839dce';x.fillRect((i*73)%360,(i*51+frame)%420,2,2);
+ }
+ x.fillStyle='#164aaf';x.fillRect(0,420,360,20);
+ x.fillStyle='#27c878';x.fillRect(20,423,40,6);x.fillRect(150,424,55,5);x.fillRect(270,423,35,7);
+ x.fillStyle='#5cecff';x.fillRect(ship-4,372,8,28);
+ x.fillRect(ship-13,388,26,7);x.fillStyle='white';x.fillRect(ship-2,378,4,7);
+ x.fillStyle='#ffad3b';x.fillRect(ship-2,400,4,8);
+ bullets.forEach(b=>{x.fillStyle='#75f7ff';x.fillRect(b.x-2,b.y,4,10)});
+ rocks.forEach(r=>{
+  x.fillStyle='#aa7968';x.fillRect(r.x-r.r,r.y-r.r,r.r*2,r.r*2);
+  x.fillStyle='#70505a';x.fillRect(r.x-4,r.y-4,7,6);
+ });
+ if(!alive){
+  x.fillStyle='white';x.font='bold 22px monospace';x.textAlign='center';
+  x.fillText('PARTIE TERMINÉE',180,205);
+  x.font='14px monospace';x.fillText('Clique sur REJOUER',180,230);
+ }
+}
+function loop(){
+ if(!alive){draw();return}
+ frame++;
+ if(keys.left)ship-=4;if(keys.right)ship+=4;
+ ship=Math.max(15,Math.min(345,ship));
+ if(keys.fire&&frame%10===0)bullets.push({x:ship,y:370});
+ if(frame%10===0)wave=1+Math.floor(score/100);
+ if(++spawn>Math.max(15,45-wave*2)){meteor();spawn=0}
+ bullets.forEach(b=>b.y-=7);
+ rocks.forEach(r=>r.y+=r.s);
+ for(let i=rocks.length-1;i>=0;i--){
+  let r=rocks[i],hit=false;
+  for(let j=bullets.length-1;j>=0;j--){
+   let b=bullets[j];
+   if(Math.hypot(r.x-b.x,r.y-b.y)<r.r+5){
+    rocks.splice(i,1);bullets.splice(j,1);
+    score+=10;credits+=2;hud();hit=true;break;
+   }
+  }
+  if(hit)continue;
+  if(r.y+r.r>=420){
+   rocks.splice(i,1);lives--;hud();
+   if(lives<=0)alive=false;
+  }
+ }
+ bullets=bullets.filter(b=>b.y>-10);
+ draw();requestAnimationFrame(loop);
+}
+$('spin').onclick=()=>{
+ if(credits<100){$('msg').textContent='Pas assez de crédits';return}
+ credits-=100;
+ let a=Math.floor(Math.random()*5),b=Math.floor(Math.random()*5),d=Math.floor(Math.random()*5);
+ if(Math.random()<.08)b=a;
+ if(Math.random()<.04)d=b=a;
+ $('reels').textContent=[symbols[a],symbols[b],symbols[d]].join(' ');
+ let win=a===b&&b===d?500:(a===b||b===d||a===d?150:0);
+ credits+=win;hud();
+ $('msg').textContent=win?'GAGNÉ ! +'+win+' crédits':'Pas de gain cette fois';
+};
+const again=document.createElement('button');
+again.textContent='↻ REJOUER';
+again.onclick=()=>{
+ score=0;lives=3;wave=1;credits=1000;frame=0;spawn=0;
+ ship=180;bullets=[];rocks=[];alive=true;hud();loop();
+};
+document.body.insertBefore(again,document.querySelector('.slot'));
+hud();loop();
+</script>
+</body>
+</html>
